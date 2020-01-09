@@ -19,20 +19,24 @@ function BMWConnected(log, config) {
 	this.enable_heater = config["heater"];
 	this.enable_lights = config["lights"];
 	this.enable_horn = config["horn"];
-  this.currentState = Characteristic.LockCurrentState.SECURED;
+  //this.currentState = Characteristic.LockCurrentState.SECURED;
+  this.currentStateLock = Characteristic.LockCurrentState.SECURED;
+  this.currentStateHeater = Characteristic.Off;
+  this.currentStateLights = Characteristic.Off;
+  this.currentStateHorn = Characteristic.Off;
 
   this.refreshToken = "";
 	this.refreshtime = 0;
 	this.authToken = "";
 	this.lastUpdate = 0;
 
-  this.service = new Service.LockMechanism(this.name);
+  this.lockService = new Service.LockMechanism(this.name);
 
-  this.service
+  this.lockService
     .getCharacteristic(Characteristic.LockCurrentState)
     .on('get', this.getState.bind(this));
 
-  this.service
+  this.lockService
     .getCharacteristic(Characteristic.LockTargetState)
     .on('get', this.getState.bind(this))
     .on('set', this.setState.bind(this));
@@ -41,16 +45,16 @@ function BMWConnected(log, config) {
   		if (err){
   			if (err){this.log("Auth Error: " + err + "Check your creds")}
   			this.log('stateRequest error');
-  			this.log("Current lock state is " + ((this.currentState == Characteristic.LockTargetState.SECURED) ? "locked" : "unlocked"));
+  			this.log("Current lock state is " + ((this.currentStateLock == Characteristic.LockTargetState.SECURED) ? "locked" : "unlocked"));
   		}else{
 
-        var currentState = (state == Characteristic.LockTargetState.SECURED) ?
+        var currentStateLock = (state == Characteristic.LockTargetState.SECURED) ?
           Characteristic.LockCurrentState.SECURED : Characteristic.LockCurrentState.UNSECURED;
 
-        this.service
-          .setCharacteristic(Characteristic.LockCurrentState, currentState);
+        this.lockService
+          .setCharacteristic(Characteristic.LockCurrentState, currentStateLock);
 
-  			this.log("Current lock state is " + ((this.currentState == Characteristic.LockTargetState.SECURED) ? "locked" : "unlocked"));
+  			this.log("Current lock state is " + ((this.currentStateLock == Characteristic.LockTargetState.SECURED) ? "locked" : "unlocked"));
   		}
   	}.bind(this))
 
@@ -60,7 +64,7 @@ BMWConnected.prototype.getState = function(callback) {
   this.log("Getting current state...");
   this.getauth(function(err){
     if (err) {
-      callback(err,this.currentState);
+      callback(err,this.currentStateLock);
     }
 
   request.get({
@@ -79,7 +83,7 @@ BMWConnected.prototype.getState = function(callback) {
       callback(null, state); // success
     }
     else {
-      callback( new Error(response.statusCode),this.currentState);
+      callback( new Error(response.statusCode),this.currentStateLock);
       this.log(' ERROR REQUEST RESULTS:', err, response.statusCode, body);
     }
   }.bind(this));
@@ -90,7 +94,7 @@ BMWConnected.prototype.getExecution = function(callback) {
   this.log("Waiting for confirmation...");
   this.getauth(function(err){
     if (err) {
-      callback(err,this.currentState);
+      callback(err,this.currentStateLock);
     }
 
   var complete = 0;
@@ -115,7 +119,7 @@ BMWConnected.prototype.getExecution = function(callback) {
       callback(null); // success
     }
     else {
-      callback( new Error(response.statusCode),this.currentState);
+      callback( new Error(response.statusCode),this.currentStateLock);
       this.log(' ERROR REQUEST RESULTS:', err, response.statusCode, body);
     }
   }.bind(this));
@@ -155,16 +159,16 @@ BMWConnected.prototype.setState = function(state, callback) {
       // call this.getExecution
       this.getExecution(function(err){
         if (err) {
-          callback(err,this.currentState);
+          callback(err,this.currentStateLock);
         }
 
       // we succeeded, so update the "current" state as well
-      var currentState = (state == Characteristic.LockTargetState.SECURED) ?
+      var currentStateLock = (state == Characteristic.LockTargetState.SECURED) ?
         Characteristic.LockCurrentState.SECURED : Characteristic.LockCurrentState.UNSECURED;
 
-      //this.log(currentState);
-      this.service
-        .setCharacteristic(Characteristic.LockCurrentState, currentState);
+      //this.log(currentStateLock);
+      this.lockService
+        .setCharacteristic(Characteristic.LockCurrentState, currentStateLock);
 
       callback(null); // success
     }.bind(this));
@@ -181,9 +185,12 @@ BMWConnected.prototype.getOnCharacteristicHandlerHeaterSwitch = function(callbac
 	//get State for heater
 }
 
-BMWConnected.prototype.setOnCharacteristicHandlerHeaterSwitch = function(value, callback) {
+BMWConnected.prototype.setOnCharacteristicHandlerHeaterSwitch = function(state, callback) {
 	//set State for heater "RCN"
   var bmwState = "RCN";
+  this.currentStateHeater = state
+  //if switched on -> set switch on, call bmwconnect, set switch off after 10 seconds
+  if(state){
 
   this.log("Sending Command %s", bmwState);
   this.getauth(function(err){
@@ -205,17 +212,32 @@ BMWConnected.prototype.setOnCharacteristicHandlerHeaterSwitch = function(value, 
       // call this.getExecution
       this.getExecution(function(err){
         if (err) {
-          callback(err,this.currentState);
+          callback(err,this.currentStateHeater);
         }
+		
+		
+		
+	/*
 
       // we succeeded, so update the "current" state as well
-      var currentState = (state == Characteristic.LockTargetState.SECURED) ?
+      var currentStateLock = (state == Characteristic.LockTargetState.SECURED) ?
         Characteristic.LockCurrentState.SECURED : Characteristic.LockCurrentState.UNSECURED;
 
-      //this.log(currentState);
-      this.service
-        .setCharacteristic(Characteristic.LockCurrentState, currentState);
+      //this.log(currentStateLock);
+      this.lockService
+        .setCharacteristic(Characteristic.LockCurrentState, currentStateLock);
+	*/
+	
+	this.heaterSwitchService.setCharacteristic(currentStateHeater);
 
+	this.timer = setTimeout(function() {
+          this.log('Time is Up!');
+          this.heaterSwitchService.getCharacteristic(Characteristic.On).updateValue(false);
+          this.switchOn = false;
+    }.bind(this), 10000);
+	
+	
+	
       callback(null); // success
     }.bind(this));
     }
@@ -225,15 +247,17 @@ BMWConnected.prototype.setOnCharacteristicHandlerHeaterSwitch = function(value, 
     }
   }.bind(this));
 }.bind(this));
-	
+  }else{
+this.heaterSwitchService.setCharacteristic(Characteristic.On);
+  }	  
 	
 }
 
 BMWConnected.prototype.getServices = function() {
-	var services = [];
+	var this.services = [];
 	
 	//adding lock Service
-	services.push(this.service);
+	services.push(this.lockService);
 	
 	if (this.enable_heater){
 		//create switch for heater
@@ -278,7 +302,7 @@ BMWConnected.prototype.getServices = function() {
 	
 	
 	
-  return [this.service];
+  return this.services;
 }
 
 BMWConnected.prototype.getauth = function(callback) {
