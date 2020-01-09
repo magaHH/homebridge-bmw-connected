@@ -16,6 +16,9 @@ function BMWConnected(log, config) {
   this.username = config["username"];
 	this.password = config["password"];
 	this.client_id = config["client_id"];
+	this.enable_heater = config["heater"];
+	this.enable_lights = config["lights"];
+	this.enable_horn = config["horn"];
   this.currentState = Characteristic.LockCurrentState.SECURED;
 
   this.refreshToken = "";
@@ -174,7 +177,107 @@ BMWConnected.prototype.setState = function(state, callback) {
 }.bind(this));
 }
 
+BMWConnected.prototype.getOnCharacteristicHandlerHeaterSwitch = function(callback) {
+	//get State for heater
+}
+
+BMWConnected.prototype.setOnCharacteristicHandlerHeaterSwitch = function(value, callback) {
+	//set State for heater "RCN"
+  var bmwState = "RCN";
+
+  this.log("Sending Command %s", bmwState);
+  this.getauth(function(err){
+    if (err) {
+      callback(err);
+    }
+
+  request.post({
+    url: 'https://customer.bmwgroup.com/api/vehicle/remoteservices/v1/' + this.vin +'/' + bmwState,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 11_1_1 like Mac OS X) AppleWebKit/604.3.5 (KHTML, like Gecko) Version/11.0 Mobile/15B150 Safari/604.1',
+      'Authorization': 'Bearer ' + this.authToken,
+  }
+  }, function(err, response, body) {
+
+    if (!err && response.statusCode == 200) {
+      //this.log('Remote: ' + bmwState);
+
+      // call this.getExecution
+      this.getExecution(function(err){
+        if (err) {
+          callback(err,this.currentState);
+        }
+
+      // we succeeded, so update the "current" state as well
+      var currentState = (state == Characteristic.LockTargetState.SECURED) ?
+        Characteristic.LockCurrentState.SECURED : Characteristic.LockCurrentState.UNSECURED;
+
+      //this.log(currentState);
+      this.service
+        .setCharacteristic(Characteristic.LockCurrentState, currentState);
+
+      callback(null); // success
+    }.bind(this));
+    }
+    else {
+      callback( new Error(response.statusCode));
+      console.log(' ERROR REQUEST RESULTS:', err, response.statusCode, body);
+    }
+  }.bind(this));
+}.bind(this));
+	
+	
+}
+
 BMWConnected.prototype.getServices = function() {
+	var services = [];
+	
+	//adding lock Service
+	services.push(this.service);
+	
+	if (this.enable_heater){
+		//create switch for heater
+		this.heaterSwitchService = new Service.Switch(this.name + "_heater");
+		/*
+     			* For each of the service characteristics we need to register setters and getter functions
+     			* 'get' is called when HomeKit wants to retrieve the current state of the characteristic
+     			* 'set' is called when HomeKit wants to update the value of the characteristic
+     		*/
+    		this.heaterSwitchService.getCharacteristic(Characteristic.On)
+      			.on('get', this.getOnCharacteristicHandlerHeaterSwitch.bind(this))
+      			.on('set', this.setOnCharacteristicHandlerHeaterSwitch.bind(this))
+		services.push(this.heaterSwitchService);
+	}
+	if (this.enable_lights){
+		//create switch for lights
+		this.lightsSwitchService = new Service.Switch(this.name + "_lights");
+		/*
+     			* For each of the service characteristics we need to register setters and getter functions
+     			* 'get' is called when HomeKit wants to retrieve the current state of the characteristic
+     			* 'set' is called when HomeKit wants to update the value of the characteristic
+     		*/
+    		this.lightsSwitchService.getCharacteristic(Characteristic.On)
+      			.on('get', this.getOnCharacteristicHandlerLightsSwitch.bind(this))
+      			.on('set', this.setOnCharacteristicHandlerLightsSwitch.bind(this))
+		services.push(this.lightsSwitchService);
+	}
+	if (this.enable_horn){
+		//create switch for horn
+		this.hornSwitchService = new Service.Switch(this.name + "_lights");
+		/*
+     			* For each of the service characteristics we need to register setters and getter functions
+     			* 'get' is called when HomeKit wants to retrieve the current state of the characteristic
+     			* 'set' is called when HomeKit wants to update the value of the characteristic
+     		*/
+    		this.hornSwitchService.getCharacteristic(Characteristic.On)
+      			.on('get', this.getOnCharacteristicHandlerHornSwitch.bind(this))
+      			.on('set', this.setOnCharacteristicHandlerHornSwitch.bind(this))
+		services.push(this.hornSwitchService);
+	}
+	
+	
+	
+	
   return [this.service];
 }
 
