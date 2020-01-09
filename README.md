@@ -1,6 +1,8 @@
 # homebridge-bmw-connected
 Control your locks on your BMW Connected Drive Cars
 
+Trying to add the other functionalities like heater, light and horn as switches
+
 
 # config.json
 
@@ -12,6 +14,9 @@ Control your locks on your BMW Connected Drive Cars
         "username": "youremail@domain.com",
         "password": "ABC123",
         "client_id": "abcdef"
+        "heater": true | false,
+        "lights": true | false,
+        "horn": "true | false,
 
 }
 ```
@@ -25,6 +30,9 @@ Control your locks on your BMW Connected Drive Cars
 | `username`                       | username for BMW's Connected Drive service              |     ✓    |
 | `password`                       | password for BMW's Connected Drive service              |     ✓    |
 | `client_id`                      | ID of Client for BMW's servers                          |     ✓    |
+| `heater`                         | create switch to switch on heater                       |     ✓    |
+| `lights`                         | create switch to switch on lights                       |     ✓    |
+| `honr`                           | create switch to switch on horn                         |     ✓    |
 
 
 ## Basic Auth
