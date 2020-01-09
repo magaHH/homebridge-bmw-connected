@@ -11,6 +11,7 @@ module.exports = function(homebridge) {
 
 function BMWConnected(log, config) {
   this.log = log;
+  this.timer;
 	this.name = config["name"];
 	this.vin = config["vin"];
   this.username = config["username"];
